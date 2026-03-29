@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { api, type UserProfile } from '@/lib/api';
 import { getFirebaseAuth } from '@/lib/firebase-client';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
@@ -17,8 +18,9 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
+//dont fucking touch this shit
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -81,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // ignore
       }
       setUser(null);
+      router.push('/');
     }
   };
 

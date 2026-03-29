@@ -9,9 +9,9 @@ const _inter = Inter({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'WealthWise - AI Financial Management',
-  description: 'Your personal AI-powered financial advisor. Track income, expenses, debts, investments and get smart recommendations.',
-  generator: 'v0.app',
+  title: 'Money-Matters - AI Financial Ecosystem',
+  description: 'Your autonomous Web3 financial command center. Track wealth across all assets with Gemini 3.1 intelligence.',
+  generator: 'Money-Matters v2.0',
   icons: {
     icon: [
       {
@@ -33,8 +33,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f5f5f0' },
-    { media: '(prefers-color-scheme: dark)', color: '#1a1a2e' },
+    { media: '(prefers-color-scheme: light)', color: '#030711' },
+    { media: '(prefers-color-scheme: dark)', color: '#030711' },
   ],
   width: 'device-width',
   initialScale: 1,

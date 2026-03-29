@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -11,7 +12,9 @@ import {
   ArrowRight,
   PieChart,
   Wallet,
-  LineChart
+  LineChart,
+  ChevronRight,
+  Hexagon
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -20,218 +23,186 @@ export default function LandingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#010204]">
+        <div className="animate-pulse text-white flex items-center gap-2 font-mono text-sm tracking-widest">
+          <Hexagon className="animate-spin w-4 h-4" />
+          <span>INITIALIZING</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#010204] text-white selection:bg-white/20 overflow-x-hidden font-sans">
+      {/* Background Grid - Very subtle */}
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+
       {/* Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-primary-foreground" />
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#010204]/80 backdrop-blur-xl border-b border-white/5">
+        <nav className="max-w-7xl mx-auto px-6 sm:px-8 h-20 flex items-center justify-between">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2.5"
+          >
+            <div className="w-9 h-9 border border-white flex items-center justify-center bg-white text-black">
+              <Hexagon className="w-5 h-5" fill="black" />
             </div>
-            <span className="font-semibold text-lg text-foreground">WealthWise</span>
-          </div>
-          <div className="flex items-center gap-4">
-            {isAuthenticated ? (
-              <Button asChild>
-                <Link href="/dashboard">Go to Dashboard</Link>
-              </Button>
-            ) : (
-              <>
-                <Button variant="ghost" asChild>
-                  <Link href="/login">Sign In</Link>
+            <span className="font-bold text-xl tracking-tighter uppercase italic">
+              Money-Matters
+            </span>
+          </motion.div>
+          
+          <div className="flex items-center gap-8">
+            <div className="hidden lg:flex items-center gap-10 text-[11px] uppercase tracking-[0.2em] font-bold text-white/40">
+              <Link href="#features" className="hover:text-white transition-colors">Features</Link>
+              <Link href="/under-construction" className="hover:text-white transition-colors">Solutions</Link>
+              <Link href="/under-construction" className="hover:text-white transition-colors">Pricing</Link>
+            </div>
+            <div className="flex items-center gap-5">
+              {isAuthenticated ? (
+                <Button asChild className="rounded-none px-6 bg-white text-black hover:bg-white/90 font-bold uppercase text-[11px] tracking-widest h-10">
+                  <Link href="/dashboard">Launch App</Link>
                 </Button>
-                <Button asChild>
-                  <Link href="/register">Get Started</Link>
-                </Button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Link href="/login" className="text-[11px] font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors">Login</Link>
+                  <Button asChild className="rounded-none px-6 bg-white text-black hover:bg-white/90 font-bold uppercase text-[11px] tracking-widest h-10">
+                    <Link href="/register">Enter</Link>
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </nav>
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="max-w-3xl">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-foreground text-balance">
-              Finance without the complexity.
-            </h1>
-            <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl text-pretty">
-              Take control of your financial future with AI-powered insights. 
-              Track everything, understand your money, and build lasting wealth.
-            </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="gap-2" asChild>
-                <Link href={isAuthenticated ? "/dashboard" : "/register"}>
-                  {isAuthenticated ? "Go to Dashboard" : "Start for Free"}
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="#features">Learn More</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <section className="relative pt-48 pb-32 px-6 sm:px-8">
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="px-3 py-1 border border-white/10 text-[10px] font-bold tracking-[0.3em] uppercase mb-8"
+          >
+            System Status: Operational
+          </motion.div>
 
-      {/* Stats Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-secondary/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-foreground">50K+</div>
-              <div className="text-sm text-muted-foreground mt-1">Active Users</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-foreground">$2.5B</div>
-              <div className="text-sm text-muted-foreground mt-1">Assets Tracked</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-foreground">98%</div>
-              <div className="text-sm text-muted-foreground mt-1">User Satisfaction</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-foreground">24/7</div>
-              <div className="text-sm text-muted-foreground mt-1">AI Support</div>
-            </div>
-          </div>
-        </div>
-      </section>
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-7xl sm:text-8xl lg:text-9xl font-black tracking-tighter mb-10 leading-[0.8] uppercase"
+          >
+            Finance <br />
+            <span className="text-white/20">Refined.</span>
+          </motion.h1>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-              Everything you need to manage your finances
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              Powerful tools designed to help you understand, track, and grow your wealth.
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="border-border bg-card hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                  <TrendingUp className="w-6 h-6 text-accent" />
-                </div>
-                <h3 className="font-semibold text-lg text-card-foreground">Income Tracking</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Track all your income sources in one place. Salary, freelance, investments - see where your money comes from.
-                </p>
-              </CardContent>
-            </Card>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="max-w-xl text-base sm:text-lg text-white/40 mb-14 font-medium leading-relaxed"
+          >
+            The essential tool for modern wealth orchestration. 
+            All-black intelligence for the monochromatic elite.
+          </motion.p>
 
-            <Card className="border-border bg-card hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="w-12 h-12 rounded-lg bg-destructive/10 flex items-center justify-center mb-4">
-                  <Wallet className="w-6 h-6 text-destructive" />
-                </div>
-                <h3 className="font-semibold text-lg text-card-foreground">Expense Management</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Categorize and monitor your spending. Identify where you can save and optimize your budget.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="w-12 h-12 rounded-lg bg-warning/10 flex items-center justify-center mb-4">
-                  <Shield className="w-6 h-6 text-warning" />
-                </div>
-                <h3 className="font-semibold text-lg text-card-foreground">Debt Strategy</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Smart debt avalanche strategy to pay off high-interest debts first and save thousands in interest.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="w-12 h-12 rounded-lg bg-chart-2/10 flex items-center justify-center mb-4">
-                  <PieChart className="w-6 h-6 text-chart-2" />
-                </div>
-                <h3 className="font-semibold text-lg text-card-foreground">Investment Tracking</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Monitor your portfolio across stocks, mutual funds, FDs, crypto, and more. Track gains and losses.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
-                  <Target className="w-6 h-6 text-accent" />
-                </div>
-                <h3 className="font-semibold text-lg text-card-foreground">Goal Planning</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Set financial goals and track your progress. Emergency fund, retirement, education - plan for it all.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-lg text-card-foreground">AI Recommendations</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Get personalized advice based on your financial data. Budget optimization, investment allocation, and more.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-sidebar text-sidebar-foreground">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-sm mb-6">
-            <LineChart className="w-4 h-4" />
-            <span>Start your financial journey today</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-balance">
-            Ready to take control of your finances?
-          </h2>
-          <p className="mt-4 text-sidebar-foreground/80 max-w-xl mx-auto">
-            Join thousands of users who have transformed their financial lives with WealthWise.
-          </p>
-          <div className="mt-8">
-            <Button size="lg" variant="secondary" className="gap-2" asChild>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-5"
+          >
+            <Button size="lg" className="rounded-none h-14 px-10 bg-white text-black font-black uppercase tracking-widest text-sm hover:scale-[1.02] transition-transform" asChild>
               <Link href={isAuthenticated ? "/dashboard" : "/register"}>
-                {isAuthenticated ? "Go to Dashboard" : "Create Free Account"}
-                <ArrowRight className="w-4 h-4" />
+                Open Command Center
               </Link>
             </Button>
+            <Button size="lg" variant="outline" className="rounded-none h-14 px-10 border-white/10 bg-transparent text-white font-bold uppercase tracking-widest text-sm" asChild>
+              <Link href="#features">Documentation</Link>
+            </Button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" className="py-32 px-6 sm:px-8 border-t border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/5 border border-white/5">
+            <FeatureCard 
+              icon={<TrendingUp className="w-5 h-5" />}
+              title="Velocity"
+              description="Monitor capital flow with surgical precision through my minimalist analytics core."
+              index={0}
+            />
+            <FeatureCard 
+              icon={<Wallet className="w-5 h-5" />}
+              title="Identity"
+              description="Seamlessly bridge your financial life into a single, encrypted monochromatic vault."
+              index={1}
+            />
+            <FeatureCard 
+              icon={<Shield className="w-5 h-5" />}
+              title="Sovereignty"
+              description="Zero-knowledge principles applied to your private financial orchestration."
+              index={2}
+            />
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-border">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* CTA */}
+      <section className="py-48 flex items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          className="text-center flex flex-col items-center"
+        >
+          <h2 className="text-5xl sm:text-7xl font-black mb-12 tracking-tighter uppercase italic">
+            Begin the <br className="hidden sm:block" /> Ascension.
+          </h2>
+          <Button size="lg" className="rounded-none h-16 px-16 bg-white text-black font-black uppercase tracking-[0.2em] text-lg hover:invert transition-all" asChild>
+            <Link href="/register">Join the Network</Link>
+          </Button>
+        </motion.div>
+      </section>
+
+      {/* Modern Footer */}
+      <footer className="py-16 px-6 sm:px-8 border-t border-white/5 bg-[#010204]">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-              <Wallet className="w-4 h-4 text-primary-foreground" />
+            <div className="w-6 h-6 border border-white flex items-center justify-center bg-white text-black">
+              <Hexagon className="w-3.5 h-3.5" fill="black" />
             </div>
-            <span className="font-medium text-foreground">WealthWise</span>
+            <span className="font-bold text-base tracking-tighter uppercase">Money-Matters</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Built with care for your financial freedom.
+          
+          <div className="flex gap-12 text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
+            <Link href="#" className="hover:text-white transition-colors">Vision</Link>
+            <Link href="/under-construction" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/under-construction" className="hover:text-white transition-colors">Privacy</Link>
+          </div>
+          
+          <p className="text-[10px] font-bold text-white/10 uppercase tracking-widest">
+            MCXXVI © MM ORG
           </p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, description, index }: { icon: React.ReactNode, title: string, description: string, index: number }) {
+  return (
+    <div className="bg-[#010204] p-12 group hover:bg-white hover:text-black transition-colors duration-500">
+      <div className="w-10 h-10 border border-white/10 flex items-center justify-center mb-8 group-hover:border-black/10">
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold mb-4 uppercase tracking-tighter italic">{title}</h3>
+      <p className="text-sm text-white/40 leading-relaxed font-medium group-hover:text-black/60">
+        {description}
+      </p>
     </div>
   );
 }

@@ -35,6 +35,7 @@ import {
   ChevronUp,
   Wallet,
   Settings,
+  Hexagon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
@@ -82,10 +83,10 @@ export function DashboardSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-2 px-2 py-2">
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <Wallet className="w-5 h-5 text-sidebar-primary-foreground" />
+          <div className="w-8 h-8 flex items-center justify-center bg-foreground text-background">
+            <Hexagon className="w-5 h-5 fill-current" />
           </div>
-          <span className="font-semibold text-sidebar-foreground">WealthWise</span>
+          <span className="font-bold tracking-tighter uppercase italic text-sm">Money-Matters</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>
