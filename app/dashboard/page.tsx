@@ -14,6 +14,7 @@ import {
   Sparkles,
   ArrowRight,
   Wallet,
+  Database
 } from 'lucide-react';
 import Link from 'next/link';
 import useSWR from 'swr';
@@ -207,6 +208,60 @@ export default function DashboardOverview() {
     monthlySurplus: 0,
     savingsRate: 0,
   };
+
+  const hasNoData = summary.totalIncome === 0 && summary.totalExpenses === 0 && summary.totalDebts === 0;
+
+  if (!summaryLoading && hasNoData) {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-12 items-center bg-[#000000] border border-white/10 p-8 sm:p-16 relative overflow-hidden group">
+          {/* Precision Accents */}
+          <div className="absolute top-0 left-0 w-12 h-12 border-t border-l border-white/20" />
+          <div className="absolute bottom-0 right-0 w-12 h-12 border-b border-r border-white/20" />
+          
+          <div className="space-y-10 z-10">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 border border-white flex items-center justify-center bg-white text-black">
+                  <Database className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 italic">System Idle</span>
+              </div>
+              <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter italic leading-[0.8]">
+                Initialize <br /> <span className="text-white">Protocol.</span>
+              </h1>
+              <p className="text-sm sm:text-base text-white/40 font-medium uppercase tracking-widest leading-relaxed max-w-sm">
+                Your command center is offline. Inundate the central matrix with your capital streams to begin AI orchestration.
+              </p>
+            </div>
+
+            <Button size="lg" className="rounded-none h-16 px-12 bg-white text-black font-black uppercase tracking-[0.3em] text-xs hover:invert transition-all flex items-center gap-4 group/btn shadow-[0_0_50px_rgba(255,255,255,0.1)]" asChild>
+              <Link href="/dashboard/income">
+                Inundate System
+                <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+              </Link>
+            </Button>
+            
+            <div className="flex items-center gap-4 pt-8 border-t border-white/10 opacity-20">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-[8px] font-black uppercase tracking-[0.5em]">Neural Engine Awaiting Data Signal</span>
+            </div>
+          </div>
+
+          <div className="relative aspect-square hidden lg:flex items-center justify-center transition-transform duration-1000">
+             <div className="absolute inset-0 bg-white/[0.02] rounded-full blur-[80px]" />
+             <div className="relative w-48 h-48 border border-white/10 flex items-center justify-center p-8 transition-colors group-hover:border-white/30">
+                 <div className="absolute inset-0 border border-dashed border-white/10 animate-[spin_20s_linear_infinity]" />
+                 <div className="absolute inset-4 border border-dashed border-white/20 animate-[spin_15s_linear_infinity_reverse]" />
+                 <div className="w-20 h-20 bg-white flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.2)]">
+                   <Target className="w-10 h-10 text-black" />
+                 </div>
+             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

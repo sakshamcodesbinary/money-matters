@@ -357,14 +357,14 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="text-center mb-24 sm:mb-40"
             >
-              <div className="inline-flex items-center gap-3 px-4 py-2 border border-white/10 bg-white/5 text-[9px] sm:text-[10px] font-black tracking-[0.4em] uppercase mb-10 italic">
+              <div className="inline-flex items-center gap-3 px-4 py-2 border border-white/10 bg-white/5 text-[8px] sm:text-[10px] font-black tracking-[0.4em] uppercase mb-10 italic">
                 <Cpu className="w-4 h-4 animate-pulse" />
                 Neural Core v3.1 Engine
               </div>
-              <h2 className="text-6xl sm:text-9xl font-black tracking-tighter uppercase italic leading-[0.8] mb-12">
+              <h2 className="text-5xl sm:text-7xl lg:text-9xl font-black tracking-tighter uppercase italic leading-[0.8] mb-12">
                 Predictive <br /> <span className="text-white/20">Intelligence.</span>
               </h2>
-              <p className="max-w-3xl mx-auto text-base sm:text-lg text-white/40 font-medium uppercase tracking-widest leading-relaxed px-4">
+              <p className="max-w-3xl mx-auto text-sm sm:text-lg text-white/40 font-medium uppercase tracking-[0.15em] sm:tracking-widest leading-relaxed px-4">
                 Architecture built specifically for capital orchestration.
               </p>
             </motion.div>
