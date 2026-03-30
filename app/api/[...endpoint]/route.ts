@@ -194,6 +194,22 @@ type GoalAnalysis = {
 };
 
 type FinancialRoadmap = {
+  debtTrapStatus?: {
+    inTrap: boolean;
+    actionableAdvice: string;
+    monthsSavedByPrepaying: number;
+    emiIncomeRatioPct: number;
+  };
+  emergencyFundStatus?: {
+    currentAmount: number;
+    requiredAmount: number;
+    allotmentPlan: string;
+  };
+  longTermProjections?: {
+    blendedGrowthRatePct: number;
+    corpus20Years: number;
+    corpus30Years: number;
+  };
   healthScore: HealthScore;
   debtStrategy: DebtStrategy;
   investmentRecommendation: InvestmentRecommendation;
@@ -205,11 +221,42 @@ type FinancialRoadmap = {
     impact: string;
     timeframe: string;
   }>;
+  netWorthTrajectory: {
+    current: number;
+    in5YearsIfNoChange: number;
+    in5YearsIfFollowed: number;
+  };
   motivationalMessage: string;
 };
 
 const lastAiGenerationTimestamp = new Map<string, number>();
 const AI_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown per user
+
+// ── AI Insights Cache ──────────────────────────────────────────────────────
+type AiCache = {
+  roadmap: FinancialRoadmap;
+  fingerprint: string;
+  generatedAt: string;
+};
+const aiInsightsCache = new Map<string, AiCache>();
+
+function computeDataFingerprint(db: Db): string {
+  const snapshot = {
+    incomeSig: db.income.map(i => `${i.source}:${i.amount}:${i.frequency}:${i.isActive}`).join('|'),
+    expenseSig: db.expenses.map(e => `${e.category}:${e.amount}:${e.frequency}`).join('|'),
+    debtSig: db.debts.map(d => `${d.name}:${d.principal}:${d.interestRate}:${d.emi}:${d.remainingTenure}`).join('|'),
+    investSig: db.investments.map(i => `${i.name}:${i.currentValue}:${i.type}`).join('|'),
+    assetSig: db.assets.map(a => `${a.name}:${a.currentValue}`).join('|'),
+    goalSig: db.goals.map(g => `${g.name}:${g.targetAmount}:${g.currentAmount}:${g.targetDate}`).join('|'),
+  };
+  const str = JSON.stringify(snapshot);
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -411,18 +458,18 @@ function computeHealthScore(db: Db) {
   };
 }
 
-export async function GET(_req: NextRequest, ctx: RouteContext) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
   const segments = await getSegments(ctx);
 
   // Auth-free endpoints could be added here, if needed.
   if (segments[0] !== 'auth') {
-    const db = await getOrCreateDbForRequest(_req);
+    const db = await getOrCreateDbForRequest(req);
     if (!db) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
   }
 
-  const db = await getOrCreateDbForRequest(_req);
+  const db = await getOrCreateDbForRequest(req);
 
   // User
   if (segments[0] === 'user' && segments[1] === 'profile') {
@@ -526,11 +573,35 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   if (segments[0] === 'recommendations' && segments[1] === 'roadmap') {
     if (!db) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
-    // Rate limiting check
+    const forceRegen = req.nextUrl.searchParams.get('force') === 'true';
+    const fingerprint = computeDataFingerprint(db);
+    const cached = aiInsightsCache.get(db.user.uid);
+
+    // Serve cached response if data fingerprint hasn't changed and not forced
+    if (!forceRegen && cached && cached.fingerprint === fingerprint) {
+      return NextResponse.json({
+        roadmap: cached.roadmap,
+        fromCache: true,
+        generatedAt: cached.generatedAt,
+        fingerprint,
+      });
+    }
+
+    // Rate limiting (only for actual AI calls)
     const now = Date.now();
     const lastGen = lastAiGenerationTimestamp.get(db.user.uid) || 0;
     if (now - lastGen < AI_COOLDOWN_MS) {
       const waitSec = Math.ceil((AI_COOLDOWN_MS - (now - lastGen)) / 1000);
+      if (cached) {
+        return NextResponse.json({
+          roadmap: cached.roadmap,
+          fromCache: true,
+          generatedAt: cached.generatedAt,
+          fingerprint,
+          rateLimited: true,
+          retryAfter: waitSec,
+        });
+      }
       return NextResponse.json({
         message: `Please wait ${waitSec} seconds before generating new insights.`,
         retryAfter: waitSec
@@ -546,10 +617,10 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
-        model: 'gemini-3.1-flash-lite-preview',
+        model: 'gemini-2.0-flash',
         generationConfig: {
           responseMimeType: 'application/json',
-          maxOutputTokens: 2048,
+          maxOutputTokens: 4096,
         },
       });
 
@@ -557,109 +628,115 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 
       const summary = computeSummary(db);
       const userAge = db.user.age ?? 30;
+      const nowDate = new Date();
 
-      const masterPrompt = `
-        You are a highly intelligent, empathetic, and practical financial advisor for Indian users.
-        Your goal is to:
-        1. Understand the user's full financial situation deeply
-        2. Give structured, actionable, and realistic financial advice
-        3. Balance emotional sensitivity with logical planning
-        4. Focus on long-term stability, not risky shortcuts
+      // Pre-compute derived analytics for the prompt
+      const monthlyEmiTotal = db.debts.reduce((s, d) => s + d.emi, 0);
+      const debtsSortedByRate = [...db.debts].sort((a, b) => b.interestRate - a.interestRate);
+      const totalDebtPrincipal = db.debts.reduce((s, d) => s + d.principal, 0);
+      const totalInterestBurden = db.debts.reduce((s, d) => {
+        const mr = d.interestRate / 100 / 12;
+        if (mr === 0 || d.remainingTenure === 0) return s;
+        return s + Math.max(0, d.emi * d.remainingTenure - d.principal);
+      }, 0);
+      const goalsSerialized = db.goals.map(g => {
+        const monthsLeft = Math.max(0, (new Date(g.targetDate).getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24 * 30.5));
+        const remaining = g.targetAmount - g.currentAmount;
+        const monthlyNeeded = monthsLeft > 0 ? remaining / monthsLeft : Infinity;
+        return {
+          name: g.name, category: g.category, priority: g.priority,
+          targetAmount: g.targetAmount, currentAmount: g.currentAmount,
+          targetDate: g.targetDate, monthsLeft: Math.round(monthsLeft),
+          monthlyNeeded: isFinite(monthlyNeeded) ? Math.round(monthlyNeeded) : 99999,
+          progressPct: g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0,
+          achievable: isFinite(monthlyNeeded) && summary.monthlySurplus >= monthlyNeeded && monthlyNeeded > 0,
+        };
+      });
+      const expensesByCategory = db.expenses.reduce((acc, e) => {
+        const mo = e.frequency === 'annual' ? e.amount / 12 : e.amount;
+        acc[e.category] = (acc[e.category] || 0) + mo;
+        return acc;
+      }, {} as Record<string, number>);
+      const top3Expenses = Object.entries(expensesByCategory).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, a]) => `${c}: ₹${Math.round(a)}/mo`);
+      const totalInvested = db.investments.reduce((s, i) => s + i.investedAmount, 0);
+      const totalCurrentValue = db.investments.reduce((s, i) => s + i.currentValue, 0);
+      const portfolioReturn = totalInvested > 0 ? ((totalCurrentValue - totalInvested) / totalInvested) * 100 : 0;
+      const yearsToRetirement = Math.max(0, 60 - userAge);
+      const retirementCorpusNeeded = summary.totalExpenses * 12 * 25;
+      const investableSurplus = Math.max(0, summary.monthlySurplus - monthlyEmiTotal);
 
-        ----------------------------------------
-        DEFAULT RULE
-        ----------------------------------------
-        - If user's age is NOT provided, assume age = 30 (Current User Age: ${userAge})
+      const masterPrompt = `You are an elite institutional financial advisor for Indian users. Analyze the complete data below and return ONLY valid JSON with no markdown.
 
-        ----------------------------------------
-        CONTEXT UNDERSTANDING RULES
-        ----------------------------------------
-        - Carefully analyze:
-          - Age: ${userAge}
-          - Monthly Income: ₹${summary.totalIncome}
-          - Monthly Expenses: ₹${summary.totalExpenses}
-          - Total Debts: ₹${summary.totalDebts}
-          - Total Investments: ₹${summary.totalInvestments}
-          - Total Assets: ₹${summary.totalAssets}
-          - Net Worth: ₹${summary.netWorth}
-          - Monthly Surplus: ₹${summary.monthlySurplus}
-          - Savings Rate: ${summary.savingsRate}%
-          - Detailed Data: ${JSON.stringify({
-        income: db.income,
-        expenses: db.expenses,
-        debts: db.debts,
-        investments: db.investments,
-        assets: db.assets,
-        goals: db.goals
-      })}
+══ USER PROFILE ══
+Name: ${db.user.name} | Age: ${userAge}y | Years to retirement (age 60): ${yearsToRetirement}y
 
-        - Identify hidden signals: Financial stress, lack of planning, emotional pressure, urgency.
+══ MONTHLY CASH FLOW ══
+Total Income: ₹${Math.round(summary.totalIncome)}/mo
+Total Expenses: ₹${Math.round(summary.totalExpenses)}/mo
+Monthly Surplus: ₹${Math.round(summary.monthlySurplus)}/mo
+Savings Rate: ${summary.savingsRate.toFixed(1)}%
+Total EMI Burden: ₹${Math.round(monthlyEmiTotal)}/mo
+Investable Surplus (after EMI): ₹${Math.round(investableSurplus)}/mo
+50/30/20 Targets: Needs≤₹${Math.round(summary.totalIncome*0.5)} | Wants≤₹${Math.round(summary.totalIncome*0.3)} | Savings≥₹${Math.round(summary.totalIncome*0.2)}
 
-        ----------------------------------------
-        TONE & STYLE
-        ----------------------------------------
-        - Speak in simple English
-        - Be calm, supportive, and non-judgmental
-        - Avoid complex jargon unless explained
-        - Sound like a real mentor, not a textbook
+══ INCOME STREAMS ══
+${db.income.filter(i => i.isActive).map(i => `${i.source}: ₹${Math.round(monthlyFromFrequency(i.amount, i.frequency))}/mo (${i.frequency})`).join('\n') || 'None'}
 
-        ----------------------------------------
-        OUTPUT FORMAT (STRICT JSON ONLY)
-        ----------------------------------------
-        Return response ONLY in valid JSON format. Do NOT include markdown blocks.
+══ EXPENSE BREAKDOWN ══
+${Object.entries(expensesByCategory).sort((a,b)=>b[1]-a[1]).map(([c,a]) => `${c}: ₹${Math.round(a)}/mo`).join('\n') || 'None'}
+Essential: ₹${Math.round(db.expenses.filter(e=>e.isEssential).reduce((s,e)=>s+(e.frequency==='annual'?e.amount/12:e.amount),0))}/mo
 
-        {
-          "situation_summary": "string (English analysis of the current state)",
-          "key_problems": ["string (English problem statement)", "..."],
-          "action_plan": {
-            "salary_split": {
-              "needs": "₹ amount",
-              "personal_expenses": "₹ amount",
-              "investments": "₹ amount"
-            },
-            "emergency_fund": "string (English advice)",
-            "expense_control": "string (English advice)",
-            "investment_plan": {
-              "short_term": "string (English advice)",
-              "long_term": "string (English advice)",
-              "risk_explanation": "string (English explanation)"
-            }
-          },
-          "investment_breakdown": [
-            {
-              "instrument": "Debt Fund / Gold ETF / Equity / FD",
-              "amount": "₹ amount",
-              "reason": "string (English reason)"
-            }
-          ],
-          "goal_planning": {
-            "goal": "string (Specific goal)",
-            "estimated_cost": "₹ amount",
-            "timeline": "string",
-            "strategy": "string (English strategy)",
-            "loan_feasibility": "string (English assessment)",
-            "emi_estimate": "₹ amount"
-          },
-          "what_not_to_do": ["string (English warning)", "..."],
-          "future_growth": {
-            "side_income": "string (English advice)",
-            "skills": "string (English advice)",
-            "career_advice": "string (English advice)"
-          }
-        }
+══ DEBTS (sorted highest APR first — Avalanche) ══
+${debtsSortedByRate.map((d,i) => `${i+1}. ${d.name} (${d.type}): ₹${d.principal.toLocaleString('en-IN')} @ ${d.interestRate}% APR | EMI: ₹${d.emi}/mo | ${d.remainingTenure} months left`).join('\n') || 'No debts'}
+Total Principal: ₹${totalDebtPrincipal.toLocaleString('en-IN')} | Est. Interest Burden: ₹${Math.round(totalInterestBurden).toLocaleString('en-IN')}
 
-        ----------------------------------------
-        IMPORTANT RULES
-        ----------------------------------------
-        - JSON keys MUST be in English
-        - Values MUST be in simple English
-        - Always give practical ₹ numbers
-        - Avoid high-risk investments for beginners
-        - For short-term goals -> safe options (FD, debt funds)
-        - For long-term -> equity can be suggested
-        - Never suggest unrealistic returns
-        - Do NOT output anything outside JSON
-      `;
+══ INVESTMENTS & ASSETS ══
+${db.investments.map(i => `${i.name} (${i.type}): Current ₹${i.currentValue.toLocaleString('en-IN')} | Invested ₹${i.investedAmount.toLocaleString('en-IN')} | ${i.expectedReturn}% p.a.`).join('\n') || 'None'}
+${db.assets.map(a => `${a.name}: ₹${a.currentValue.toLocaleString('en-IN')}`).join('\n') || 'None'}
+Net Worth: ₹${summary.netWorth.toLocaleString('en-IN')}
+
+══ GOALS ══
+${goalsSerialized.map(g => `[${g.priority.toUpperCase()}] ${g.name} (${g.category}): Target ₹${g.targetAmount.toLocaleString('en-IN')} by ${g.targetDate}`).join('\n') || 'No goals'}
+
+══ YOUR STRICT ALGORITHMIC MANDATE ══
+FIRST PRIORITY - DEBT TRAP CHECK:
+- If ANY debt > 18% APR exists, classify user as IN DEBT TRAP.
+- If IN DEBT TRAP: STOP all monthly investments. Use entire monthly savings + old investments to pre-pay high-interest EMI immediately. Advise selling/mortgaging assets if extreme. Show exact calculation of how many months earlier the loan closes.
+- Calculate portion of income eaten by EMI: (Total EMI / Total Income) * 100.
+
+SECOND PRIORITY - EMERGENCY FUND:
+- Check if Emergency Fund exists in Bank Accounts or Debt Mutual Funds.
+- Minimum Required: 3x Monthly Expenses.
+- If shortfall exists: Formulate a plan allotting a strict portion of savings to build this up.
+
+THIRD PRIORITY - GOAL & INVESTMENT ALLOCATION BY AGE:
+Allocate monthly surplus AFTER debt/emergency priorities are met. Focus on goals by priority. Use strict age brackets:
+- AGE 20-30: 40% Small Cap, 40% Mid Cap, 20% Large Cap.
+- AGE 30-40: 30% Small Cap, 40% Mid Cap, 30% Large Cap.
+- AGE 40-50+: 20% Debt/FD, 30% Mid Cap, 50% Large Cap.
+* Fixed Growth Rates to use for all projections (compounded annually): Small Cap=20%, Mid Cap=16%, Large Cap=12%, Debt Fund=7%, FD=5%.
+* In your JSON, provide projected years to achieve each goal, and the total projected corpus after 20 years and 30 years if they continuously invest at their age-adjusted blended growth rate.
+
+Return ONLY this JSON structure exactly:
+{
+  "emi_income_ratio_pct": number,
+  "debt_trap_status": { "in_trap": boolean, "actionable_advice": "string", "months_saved_by_prepaying": number },
+  "emergency_fund_status": { "current_amount": number, "required_amount": number, "allotment_plan": "string" },
+  "health_score": number,
+  "health_grade": "A|B|C|D|F",
+  "health_breakdown": { "savings_rate_score": number, "debt_to_income_score": number, "emergency_fund_score": number, "investment_diversity_score": number },
+  "key_problems": ["string"],
+  "debt_payoff_plan": [{ "rank": number, "name": "string", "reason": "string", "current_emi": number, "recommended_extra_payment": number, "estimated_payoff_months": number }],
+  "total_interest_saved": number,
+  "goal_analysis": [{ "name": "string", "achievable": boolean, "verdict": "string", "monthly_needed": number, "projected_years_to_achieve": number }],
+  "budget_audit": { "overall_verdict": "string", "suggested_cuts": ["string"] },
+  "action_plan": [{ "priority": number, "action": "string", "impact": "string", "timeframe": "string" }],
+  "investment_breakdown": [{ "instrument": "string", "monthly_amount": number, "allocation_pct": number, "reason": "string" }],
+  "long_term_projections": { "blended_growth_rate_pct": number, "corpus_20_years": number, "corpus_30_years": number },
+  "net_worth_trajectory": { "current": number, "in_5_years_if_no_change": number, "in_5_years_if_followed": number },
+  "motivational_message": "string"
+}`;
+
 
       console.log('Sending Prompt to Gemini (Length:', masterPrompt.length, '):', masterPrompt.substring(0, 1000) + '...');
       
@@ -677,95 +754,125 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
       const responseText = responseTextRaw.trim().replace(/^```json/, '').replace(/```$/, '').trim();
       const aiResponse = JSON.parse(responseText);
 
-      // Now we wrap the AI response into the format the frontend expects.
-      // The frontend expects the roadmap properties at the top level of the returned 'roadmap' key.
-      
+      const hsTotal = Math.min(100, Math.max(0,
+        (aiResponse.health_breakdown?.savings_rate_score || 0) +
+        (aiResponse.health_breakdown?.debt_to_income_score || 0) +
+        (aiResponse.health_breakdown?.emergency_fund_score || 0) +
+        (aiResponse.health_breakdown?.investment_diversity_score || 0)
+      )) || aiResponse.health_score || Math.min(100, Math.round((summary.savingsRate * 2) + 20));
+
       const structuredRoadmap: FinancialRoadmap = {
+        debtTrapStatus: {
+          inTrap: aiResponse.debt_trap_status?.in_trap || false,
+          actionableAdvice: aiResponse.debt_trap_status?.actionable_advice || '',
+          monthsSavedByPrepaying: aiResponse.debt_trap_status?.months_saved_by_prepaying || 0,
+          emiIncomeRatioPct: aiResponse.emi_income_ratio_pct || 0,
+        },
+        emergencyFundStatus: {
+          currentAmount: aiResponse.emergency_fund_status?.current_amount || 0,
+          requiredAmount: aiResponse.emergency_fund_status?.required_amount || 0,
+          allotmentPlan: aiResponse.emergency_fund_status?.allotment_plan || '',
+        },
         healthScore: {
-          score: Math.min(100, Math.max(0, (summary.savingsRate * 2) + 20)), // Simple logic to fill UI
-          grade: summary.savingsRate > 20 ? 'A' : summary.savingsRate > 10 ? 'B' : 'C',
+          score: hsTotal,
+          grade: aiResponse.health_grade || (hsTotal >= 80 ? 'A' : hsTotal >= 60 ? 'B' : hsTotal >= 40 ? 'C' : 'D'),
           breakdown: {
-            savingsRate: summary.savingsRate,
-            debtToIncome: summary.totalIncome > 0 ? (summary.totalDebts / summary.totalIncome) * 100 : 0,
-            emergencyFund: summary.totalExpenses > 0 ? (summary.totalAssets / summary.totalExpenses) * 100 : 0,
-            investmentDiversity: 40,
+            savingsRate: aiResponse.health_breakdown?.savings_rate_score ?? summary.savingsRate,
+            debtToIncome: aiResponse.health_breakdown?.debt_to_income_score ?? (summary.totalIncome > 0 ? (summary.totalDebts / summary.totalIncome) * 100 : 0),
+            emergencyFund: aiResponse.health_breakdown?.emergency_fund_score ?? (summary.totalExpenses > 0 ? (summary.totalAssets / summary.totalExpenses) * 100 : 0),
+            investmentDiversity: aiResponse.health_breakdown?.investment_diversity_score ?? 40,
           },
-          recommendations: aiResponse.key_problems || [],
+          recommendations: [...(aiResponse.key_problems || []), ...(aiResponse.what_not_to_do || [])].slice(0, 5),
         },
         debtStrategy: {
-          strategy: aiResponse.action_plan?.expense_control || 'Focus on paying off high-interest debts first.',
-          prioritizedDebts: db.debts.map((d, i) => ({
-            id: d.id,
+          strategy: aiResponse.budget_audit?.overall_verdict || 'Avalanche method — pay highest APR debt first.',
+          prioritizedDebts: (aiResponse.debt_payoff_plan || db.debts.map((d, i) => ({
+            rank: i + 1, name: d.name, reason: `${d.interestRate}% APR`, current_emi: d.emi, recommended_extra_payment: 0, estimated_payoff_months: d.remainingTenure
+          }))).map((d: any) => ({
+            id: db.debts.find((dbD: any) => dbD.name === d.name)?.id || d.name,
             name: d.name,
-            priority: i + 1,
-            reason: 'High interest impact',
-            suggestedPayment: d.emi,
+            priority: d.rank,
+            reason: d.reason,
+            suggestedPayment: (d.current_emi || 0) + (d.recommended_extra_payment || 0),
           })),
-          totalInterestSaved: 0,
-          debtFreeDate: 'Analyzing...',
+          totalInterestSaved: aiResponse.total_interest_saved || 0,
+          debtFreeDate: aiResponse.estimated_debt_free_date || 'Calculating...',
         },
         investmentRecommendation: {
-          riskProfile: 'Balanced',
-          suggestedAllocation: {
-            Stocks: 40,
-            Gold: 10,
-            'Mutual Funds': 50,
-          },
-          recommendations: aiResponse.investment_breakdown?.map((ib: any) => ({
+          riskProfile: db.user.age && db.user.age >= 50 ? 'Conservative' : db.user.age && db.user.age >= 38 ? 'Balanced' : 'Growth-Oriented',
+          suggestedAllocation: (aiResponse.investment_breakdown || []).reduce((acc: Record<string, number>, item: any) => {
+            acc[item.instrument] = item.allocation_pct || 0;
+            return acc;
+          }, {}),
+          recommendations: (aiResponse.investment_breakdown || []).map((ib: any) => ({
             type: ib.instrument,
-            allocation: 0,
-            reason: ib.reason,
-          })) || [],
+            allocation: ib.allocation_pct || 0,
+            reason: `₹${(ib.monthly_amount || 0).toLocaleString('en-IN')}/mo — ${ib.reason}`,
+          })),
+        },
+        longTermProjections: {
+          blendedGrowthRatePct: aiResponse.long_term_projections?.blended_growth_rate_pct || 12,
+          corpus20Years: aiResponse.long_term_projections?.corpus_20_years || 0,
+          corpus30Years: aiResponse.long_term_projections?.corpus_30_years || 0,
         },
         budgetRecommendation: {
-          currentBudget: {
-            income: summary.totalIncome,
-            expenses: summary.totalExpenses,
-          },
-          suggestedBudget: {
-            income: summary.totalIncome,
-            expenses: summary.totalExpenses * 0.9,
-          },
-          savingsOpportunities: [],
+          currentBudget: { income: summary.totalIncome, expenses: summary.totalExpenses },
+          suggestedBudget: { income: summary.totalIncome, expenses: summary.totalExpenses * 0.9 },
+          savingsOpportunities: (aiResponse.budget_audit?.suggested_cuts || []).map((cut: string, i: number) => ({
+            category: cut.split(':')[0] || `Optimization #${i + 1}`,
+            currentSpend: summary.totalExpenses,
+            suggestedSpend: summary.totalExpenses * 0.9,
+            potentialSavings: Math.round(summary.totalExpenses * 0.1 / Math.max(1, (aiResponse.budget_audit?.suggested_cuts?.length || 1))),
+          })),
         },
         goalAnalysis: {
-          goals: db.goals.map((g) => {
-            const progress = g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) * 100 : 0;
-            return {
-              id: g.id,
-              name: g.name,
-              progress,
-              onTrack: progress >= 30,
-              monthlyRequired: 0,
-              estimatedCompletion: g.targetDate,
-            };
-          }),
-          overallProgress: 0,
+          goals: (aiResponse.goal_analysis && aiResponse.goal_analysis.length > 0
+            ? aiResponse.goal_analysis.map((ga: any) => {
+                const dbGoal = db.goals.find((g: any) => g.name === ga.name);
+                const progress = dbGoal && dbGoal.targetAmount > 0 ? (dbGoal.currentAmount / dbGoal.targetAmount) * 100 : 0;
+                return { 
+                  id: dbGoal?.id || ga.name, 
+                  name: ga.name, 
+                  progress, 
+                  onTrack: ga.achievable, 
+                  monthlyRequired: ga.monthly_needed || 0, 
+                  estimatedCompletion: dbGoal?.targetDate || (ga.projected_years_to_achieve ? `${ga.projected_years_to_achieve} yrs` : '') 
+                };
+              })
+            : db.goals.map(g => ({ id: g.id, name: g.name, progress: g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) * 100 : 0, onTrack: true, monthlyRequired: 0, estimatedCompletion: g.targetDate }))
+          ),
+          overallProgress: db.goals.length > 0 ? db.goals.reduce((s, g) => s + (g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) * 100 : 0), 0) / db.goals.length : 0,
         },
-        actionPlan: [
-          {
-            priority: 1,
-            action: aiResponse.action_plan?.emergency_fund || 'Build an emergency fund.',
-            impact: 'Financial Security',
-            timeframe: '1-3 months',
-          },
-          ... (aiResponse.key_problems || []).map((p: string, i: number) => ({
-            priority: i + 2,
-            action: p,
-            impact: 'Improve Health',
-            timeframe: 'ASAP',
-          })),
-        ],
-        motivationalMessage: aiResponse.situation_summary || 'You are on the right track!',
+        actionPlan: (aiResponse.action_plan || []).map((a: any) => ({
+          priority: a.priority, action: a.action, impact: a.impact, timeframe: a.timeframe,
+        })),
+        netWorthTrajectory: {
+          current: aiResponse.net_worth_trajectory?.current || summary.netWorth,
+          in5YearsIfNoChange: aiResponse.net_worth_trajectory?.in_5_years_if_no_change || summary.netWorth,
+          in5YearsIfFollowed: aiResponse.net_worth_trajectory?.in_5_years_if_followed || summary.netWorth,
+        },
+        motivationalMessage: aiResponse.motivational_message || aiResponse.situation_summary || 'Every rupee tracked brings you closer to financial freedom.',
       };
 
-      return NextResponse.json({ roadmap: structuredRoadmap });
+      // Cache the result with the data fingerprint
+      aiInsightsCache.set(db.user.uid, { roadmap: structuredRoadmap, fingerprint, generatedAt: new Date().toISOString() });
+
+      return NextResponse.json({ roadmap: structuredRoadmap, fromCache: false, fingerprint, generatedAt: new Date().toISOString() });
     } catch (error: any) {
       console.error('Gemini AI Error - Falling back to local calculation:', error.message);
       
       // FALLBACK: Return a calculated roadmap if AI fails (e.g. Quota Exceeded)
       const summary = computeSummary(db);
       const fallbackRoadmap: FinancialRoadmap = {
+        debtTrapStatus: {
+          inTrap: false, actionableAdvice: '', monthsSavedByPrepaying: 0, emiIncomeRatioPct: 0
+        },
+        emergencyFundStatus: {
+          currentAmount: 0, requiredAmount: 0, allotmentPlan: 'Fallback API active.'
+        },
+        longTermProjections: {
+          blendedGrowthRatePct: 0, corpus20Years: 0, corpus30Years: 0
+        },
         healthScore: computeHealthScore(db),
         debtStrategy: {
           strategy: 'Fallback Strategy: Prioritize high-interest debts while maintaining minimum payments.',
@@ -801,6 +908,11 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
           { priority: 1, action: 'AI quota reached. Using computed metrics.', impact: 'Informational', timeframe: 'Immediate' },
           { priority: 2, action: 'Focus on your highest interest debt.', impact: 'Interest saving', timeframe: 'Monthly' }
         ],
+        netWorthTrajectory: {
+          current: summary.netWorth,
+          in5YearsIfNoChange: summary.netWorth * 1.2,
+          in5YearsIfFollowed: summary.netWorth * 1.5,
+        },
         motivationalMessage: "You're taking the right steps. Keep tracking your finances!"
       };
 

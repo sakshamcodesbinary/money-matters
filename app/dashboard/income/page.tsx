@@ -28,7 +28,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DataTable, type Column } from '@/components/dashboard/data-table';
-import { Plus, TrendingUp } from 'lucide-react';
+import { Plus, TrendingUp, Info, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { api, type Income } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -43,7 +49,6 @@ function formatCurrency(amount: number) {
 const frequencyLabels: Record<string, string> = {
   monthly: 'Monthly',
   annual: 'Annual',
-  'one-time': 'One-time',
 };
 
 export default function IncomePage() {
@@ -56,7 +61,7 @@ export default function IncomePage() {
   const [formData, setFormData] = useState({
     source: '',
     amount: '',
-    frequency: 'monthly' as 'monthly' | 'annual' | 'one-time',
+    frequency: 'monthly' as 'monthly' | 'annual',
     isActive: true,
   });
 
@@ -109,7 +114,7 @@ export default function IncomePage() {
       setFormData({
         source: item.source,
         amount: item.amount.toString(),
-        frequency: item.frequency,
+        frequency: item.frequency as 'monthly' | 'annual',
         isActive: item.isActive,
       });
     } else {
@@ -210,76 +215,138 @@ export default function IncomePage() {
       />
 
       {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Income' : 'Add Income'}</DialogTitle>
-            <DialogDescription>
-              {editingItem ? 'Update your income source details.' : 'Add a new income source to track.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <FieldGroup className="py-4">
-              <Field>
-                <FieldLabel htmlFor="source">Source Name</FieldLabel>
-                <Input
-                  id="source"
-                  placeholder="e.g., Salary, Freelance, Dividends"
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="amount">Amount (INR)</FieldLabel>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="50000"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="frequency">Frequency</FieldLabel>
-                <Select
-                  value={formData.frequency}
-                  onValueChange={(value: 'monthly' | 'annual' | 'one-time') =>
-                    setFormData({ ...formData, frequency: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="annual">Annual</SelectItem>
-                    <SelectItem value="one-time">One-time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field className="flex items-center justify-between">
-                <FieldLabel htmlFor="isActive" className="cursor-pointer">Active</FieldLabel>
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                />
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
+        <AnimatePresence>
+          {isDialogOpen && (
+            <DialogContent forceMount className="bg-transparent border-none p-0 max-w-lg shadow-none overflow-visible" showCloseButton={false}>
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.99 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.16, 1, 0.3, 1] 
+                }}
+                className="bg-[#050505] border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+              >
+                <DialogHeader className="p-6 border-b border-white/10">
+                  <DialogTitle className="text-white">
+                    {editingItem ? 'Edit Income' : 'Add Income'}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/60">
+                    {editingItem ? 'Update your income source details.' : 'Add a new income source to track.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="p-6">
+                  <FieldGroup className="space-y-6">
+                    <Field>
+                      <FieldLabel htmlFor="source" className="text-white">Source Name</FieldLabel>
+                      <Input
+                        id="source"
+                        className="bg-white/5 border-white/10 text-white"
+                        placeholder="e.g., Salary, Freelance, Dividends"
+                        value={formData.source}
+                        onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="frequency" className="text-white">Frequency</FieldLabel>
+                      <Select
+                        value={formData.frequency}
+                        onValueChange={(value: 'monthly' | 'annual') =>
+                          setFormData({ ...formData, frequency: value })
+                        }
+                      >
+                        <SelectTrigger className="w-full bg-white/5 border-white/10 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border-white/10">
+                          <SelectItem value="monthly" className="text-neutral-900 focus:bg-neutral-100 focus:text-black">Monthly</SelectItem>
+                          <SelectItem value="annual" className="text-neutral-900 focus:bg-neutral-100 focus:text-black">Annual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <div className="flex justify-between items-end mb-1">
+                        <FieldLabel htmlFor="amount" className="text-white">Amount (INR)</FieldLabel>
+                        {formData.frequency === 'annual' && formData.amount && !isNaN(parseFloat(formData.amount)) && (
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                             <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">
+                               <span className="text-white">= </span>
+                               <span className="text-emerald-400">{formatCurrency(parseFloat(formData.amount) / 12)} / Month</span>
+                             </span>
+                             <Popover>
+                               <PopoverTrigger asChild>
+                                 <button 
+                                   type="button" 
+                                   className="w-5 h-5 bg-emerald-500 text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                 >
+                                   <Info className="w-3 h-3 fill-black font-black" />
+                                 </button>
+                               </PopoverTrigger>
+                               <PopoverContent 
+                                 side="top" 
+                                 align="end" 
+                                 className="bg-white text-black border-none text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-none shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] z-[110]"
+                               >
+                                 <div className="flex items-center gap-2">
+                                   <div className="w-1 h-3 bg-emerald-500" />
+                                   Analytical Normalization: Divided by 12
+                                 </div>
+                               </PopoverContent>
+                             </Popover>
+                          </div>
+                        )}
+                      </div>
+                      <Input
+                        id="amount"
+                        type="number"
+                        className="bg-white/5 border-white/10 text-white"
+                        placeholder="50000"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        required
+                        min="0"
+                        step="0.01"
+                      />
+                    </Field>
+                    <Field className="flex items-center justify-between border border-white/5 p-3 rounded-none bg-white/[0.02]">
+                      <div className="space-y-0.5">
+                        <FieldLabel htmlFor="isActive" className="cursor-pointer font-bold text-xs text-white">Active Status</FieldLabel>
+                        <p className="text-[9px] text-white/40 uppercase tracking-tighter">Include this source in financial analysis</p>
+                      </div>
+                      <div className="flex items-center h-full text-white">
+                        <Switch
+                          id="isActive"
+                          checked={formData.isActive}
+                          onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                        />
+                      </div>
+                    </Field>
+                  </FieldGroup>
+                  <DialogFooter className="mt-6 gap-3">
+                    <Button 
+                      type="button" 
+                      className="bg-white text-black hover:bg-white/90" 
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting} 
+                      className="bg-white text-black hover:bg-white/90"
+                    >
+                      {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </motion.div>
+            </DialogContent>
+          )}
+        </AnimatePresence>
       </Dialog>
 
       {/* Delete Confirmation */}

@@ -250,8 +250,18 @@ class ApiClient {
     return this.request<{ goalAnalysis: GoalAnalysis }>('/recommendations/goals');
   }
 
-  async getFullRoadmap() {
-    return this.request<{ roadmap: FinancialRoadmap }>('/recommendations/roadmap');
+  async getFullRoadmap(force: boolean = false) {
+    const url = force ? '/recommendations/roadmap?force=true' : '/recommendations/roadmap';
+    return this.request<{ 
+      roadmap: FinancialRoadmap;
+      fromCache?: boolean;
+      generatedAt?: string;
+      fingerprint?: string;
+      rateLimited?: boolean;
+      retryAfter?: number;
+      isFallback?: boolean;
+      aiError?: string;
+    }>(url);
   }
 }
 
@@ -402,6 +412,22 @@ export interface GoalAnalysis {
 }
 
 export interface FinancialRoadmap {
+  debtTrapStatus?: {
+    inTrap: boolean;
+    actionableAdvice: string;
+    monthsSavedByPrepaying: number;
+    emiIncomeRatioPct: number;
+  };
+  emergencyFundStatus?: {
+    currentAmount: number;
+    requiredAmount: number;
+    allotmentPlan: string;
+  };
+  longTermProjections?: {
+    blendedGrowthRatePct: number;
+    corpus20Years: number;
+    corpus30Years: number;
+  };
   healthScore: HealthScore;
   debtStrategy: DebtStrategy;
   investmentRecommendation: InvestmentRecommendation;
@@ -413,6 +439,11 @@ export interface FinancialRoadmap {
     impact: string;
     timeframe: string;
   }>;
+  netWorthTrajectory: {
+    current: number;
+    in5YearsIfNoChange: number;
+    in5YearsIfFollowed: number;
+  };
   motivationalMessage: string;
 }
 

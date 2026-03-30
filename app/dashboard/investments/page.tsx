@@ -27,7 +27,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DataTable, type Column } from '@/components/dashboard/data-table';
-import { Plus, PieChart, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, PieChart, TrendingUp, TrendingDown, Info, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { api, type Investment } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -76,6 +82,7 @@ export default function InvestmentsPage() {
     currentValue: '',
     investedAmount: '',
     expectedReturn: '',
+    strategy: 'sip' as 'sip' | 'lumpsum',
   });
 
   const investments = data?.investments || [];
@@ -130,6 +137,7 @@ export default function InvestmentsPage() {
       currentValue: '',
       investedAmount: '',
       expectedReturn: '',
+      strategy: 'sip',
     });
     setEditingItem(null);
   };
@@ -143,6 +151,7 @@ export default function InvestmentsPage() {
         currentValue: item.currentValue.toString(),
         investedAmount: item.investedAmount.toString(),
         expectedReturn: item.expectedReturn.toString(),
+        strategy: 'sip', // Default to SIP for editing if not stored
       });
     } else {
       resetForm();
@@ -289,88 +298,189 @@ export default function InvestmentsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Investment' : 'Add Investment'}</DialogTitle>
-            <DialogDescription>
-              {editingItem ? 'Update your investment details.' : 'Add a new investment to track.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <FieldGroup className="py-4">
-              <Field>
-                <FieldLabel htmlFor="name">Investment Name</FieldLabel>
-                <Input
-                  id="name"
-                  placeholder="e.g., Axis Bluechip Fund, Reliance Shares"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="type">Type</FieldLabel>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: Investment['type']) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {investmentTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="investedAmount">Invested Amount (INR)</FieldLabel>
-                <Input
-                  id="investedAmount"
-                  type="number"
-                  placeholder="100000"
-                  value={formData.investedAmount}
-                  onChange={(e) => setFormData({ ...formData, investedAmount: e.target.value })}
-                  required
-                  min="0"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="currentValue">Current Value (INR)</FieldLabel>
-                <Input
-                  id="currentValue"
-                  type="number"
-                  placeholder="120000"
-                  value={formData.currentValue}
-                  onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })}
-                  required
-                  min="0"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="expectedReturn">Expected Annual Return (%)</FieldLabel>
-                <Input
-                  id="expectedReturn"
-                  type="number"
-                  placeholder="12"
-                  value={formData.expectedReturn}
-                  onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
-                  required
-                  step="0.01"
-                />
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
+        <AnimatePresence>
+          {isDialogOpen && (
+            <DialogContent forceMount className="bg-transparent border-none p-0 max-w-lg shadow-none overflow-visible" showCloseButton={false}>
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.99 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.16, 1, 0.3, 1] 
+                }}
+                className="bg-[#050505] border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+              >
+                <DialogHeader className="p-6 border-b border-white/10">
+                  <DialogTitle className="text-white">
+                    {editingItem ? 'Update Asset Protocol' : 'Initialize Asset Protocol'}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/60">
+                    {editingItem ? 'Refining capital growth parameters.' : 'Mapping new wealth stream to matrix.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="p-5">
+                  <FieldGroup className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="name" className="text-white text-xs">Asset Identifier</FieldLabel>
+                        <Input
+                          id="name"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="e.g., Axis Bluechip"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="type" className="text-white text-xs">Asset Type</FieldLabel>
+                        <Select
+                          value={formData.type}
+                          onValueChange={(value: Investment['type']) => setFormData({ ...formData, type: value })}
+                        >
+                          <SelectTrigger className="w-full bg-white/5 border-white/10 text-white h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-white/10">
+                            {investmentTypeOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-neutral-900 focus:bg-neutral-100 focus:text-black">{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="strategy" className="text-white text-xs">Contribution Strategy</FieldLabel>
+                        <Select
+                          value={formData.strategy}
+                          onValueChange={(value: 'sip' | 'lumpsum') => setFormData({ ...formData, strategy: value })}
+                        >
+                          <SelectTrigger className="w-full bg-white/5 border-white/10 text-white h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-white/10">
+                            <SelectItem value="sip" className="text-neutral-900 focus:bg-neutral-100 focus:text-black">SIP (Monthly)</SelectItem>
+                            <SelectItem value="lumpsum" className="text-neutral-900 focus:bg-neutral-100 focus:text-black">Lump Sum</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="investedAmount" className="text-white text-xs">
+                          {formData.strategy === 'sip' ? 'Monthly SIP (INR)' : 'Total Invested (INR)'}
+                        </FieldLabel>
+                        <Input
+                          id="investedAmount"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder={formData.strategy === 'sip' ? '5000' : '100000'}
+                          value={formData.investedAmount}
+                          onChange={(e) => setFormData({ ...formData, investedAmount: e.target.value })}
+                          required
+                          min="0"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="currentValue" className="text-white text-xs">Current Market Value</FieldLabel>
+                        <Input
+                          id="currentValue"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="120000"
+                          value={formData.currentValue}
+                          onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })}
+                          required
+                          min="0"
+                        />
+                      </Field>
+                      <Field>
+                        <div className="flex justify-between items-end mb-1">
+                          <FieldLabel htmlFor="expectedReturn" className="text-white text-xs">Expected Return (%)</FieldLabel>
+                          {formData.investedAmount && formData.expectedReturn && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                               <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">
+                                 <span className="text-white">= </span>
+                                 <span className="text-emerald-400">
+                                   {(() => {
+                                      const p = parseFloat(formData.investedAmount);
+                                      const r = parseFloat(formData.expectedReturn) / 100;
+                                      if (isNaN(p) || isNaN(r)) return '---';
+                                      
+                                      let fv = 0;
+                                      if (formData.strategy === 'sip') {
+                                        // FV = P * [((1 + r)^n - 1) / r] * (1 + r)
+                                        const monthlyRate = r / 12;
+                                        fv = p * ((Math.pow(1 + monthlyRate, 12) - 1) / monthlyRate) * (1 + monthlyRate);
+                                      } else {
+                                        // FV = P * (1 + r)^n
+                                        fv = p * (1 + r);
+                                      }
+                                      return formatCurrency(fv);
+                                   })()}
+                                 </span>
+                               </span>
+                               <Popover>
+                                 <PopoverTrigger asChild>
+                                   <button 
+                                     type="button" 
+                                     className="w-5 h-5 bg-emerald-500 text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                   >
+                                     <Info className="w-3 h-3 fill-black font-black" />
+                                   </button>
+                                 </PopoverTrigger>
+                                 <PopoverContent 
+                                   side="top" 
+                                   align="end" 
+                                   className="bg-white text-black border-none text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-none shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] z-[110]"
+                                 >
+                                   <div className="flex items-center gap-2">
+                                     <div className="w-1 h-3 bg-emerald-500" />
+                                     Projected 1-Year Future Value based on strategy.
+                                   </div>
+                                 </PopoverContent>
+                               </Popover>
+                            </div>
+                          )}
+                        </div>
+                        <Input
+                          id="expectedReturn"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="12"
+                          value={formData.expectedReturn}
+                          onChange={(e) => setFormData({ ...formData, expectedReturn: e.target.value })}
+                          required
+                          step="0.01"
+                        />
+                      </Field>
+                    </div>
+                  </FieldGroup>
+                  <DialogFooter className="mt-5 gap-3">
+                    <Button 
+                      type="button" 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold" 
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting} 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold px-6"
+                    >
+                      {isSubmitting ? '...' : editingItem ? 'Update' : 'Initialize'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </motion.div>
+            </DialogContent>
+          )}
+        </AnimatePresence>
       </Dialog>
 
       {/* Delete Confirmation */}

@@ -27,7 +27,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DataTable, type Column } from '@/components/dashboard/data-table';
-import { Plus, CreditCard, AlertTriangle } from 'lucide-react';
+import { Plus, CreditCard, AlertTriangle, Info, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { api, type Debt } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -76,7 +82,7 @@ export default function DebtsPage() {
   const debts = data?.debts || [];
   const totalDebt = debts.reduce((sum, item) => sum + item.principal, 0);
   const totalEMI = debts.reduce((sum, item) => sum + item.emi, 0);
-  const highInterestDebts = debts.filter(d => d.interestRate > 15);
+  const highInterestDebts = debts.filter(d => d.interestRate > 18);
 
   const columns: Column<Debt>[] = [
     { key: 'name', header: 'Name' },
@@ -96,7 +102,7 @@ export default function DebtsPage() {
       key: 'interestRate',
       header: 'Interest',
       render: (item) => (
-        <span className={item.interestRate > 15 ? 'text-destructive font-medium' : ''}>
+        <span className={item.interestRate > 18 ? 'text-amber-500 font-bold' : 'text-white'}>
           {item.interestRate}%
         </span>
       ),
@@ -247,9 +253,9 @@ export default function DebtsPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {'High Interest Debts (>15%)'}
+                {'High Interest Debts (>18%)'}
               </CardTitle>
-              <CardDescription>Priority to pay off</CardDescription>
+              <CardDescription>Capital erosion threat</CardDescription>
             </div>
             <div className="p-2 rounded-lg bg-destructive/10">
               <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -275,101 +281,207 @@ export default function DebtsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Debt' : 'Add Debt'}</DialogTitle>
-            <DialogDescription>
-              {editingItem ? 'Update your debt details.' : 'Add a new debt or loan to track.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <FieldGroup className="py-4">
-              <Field>
-                <FieldLabel htmlFor="name">Debt Name</FieldLabel>
-                <Input
-                  id="name"
-                  placeholder="e.g., HDFC Credit Card, Car Loan"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="type">Type</FieldLabel>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: Debt['type']) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {debtTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="principal">Outstanding Principal (INR)</FieldLabel>
-                <Input
-                  id="principal"
-                  type="number"
-                  placeholder="100000"
-                  value={formData.principal}
-                  onChange={(e) => setFormData({ ...formData, principal: e.target.value })}
-                  required
-                  min="0"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="interestRate">Interest Rate (%)</FieldLabel>
-                <Input
-                  id="interestRate"
-                  type="number"
-                  placeholder="18"
-                  value={formData.interestRate}
-                  onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="emi">Monthly EMI (INR)</FieldLabel>
-                <Input
-                  id="emi"
-                  type="number"
-                  placeholder="5000"
-                  value={formData.emi}
-                  onChange={(e) => setFormData({ ...formData, emi: e.target.value })}
-                  required
-                  min="0"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="remainingTenure">Remaining Tenure (Months)</FieldLabel>
-                <Input
-                  id="remainingTenure"
-                  type="number"
-                  placeholder="24"
-                  value={formData.remainingTenure}
-                  onChange={(e) => setFormData({ ...formData, remainingTenure: e.target.value })}
-                  required
-                  min="1"
-                />
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
+        <AnimatePresence>
+          {isDialogOpen && (
+            <DialogContent forceMount className="bg-transparent border-none p-0 max-w-lg shadow-none overflow-visible" showCloseButton={false}>
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.99 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.16, 1, 0.3, 1] 
+                }}
+                className="bg-[#050505] border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+              >
+                <DialogHeader className="p-6 border-b border-white/10">
+                  <DialogTitle className="text-white">
+                    {editingItem ? 'Update Debt Protocol' : 'Initialize Debt Protocol'}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/60">
+                    {editingItem ? 'Refining liability parameters.' : 'Mapping new capital liability to matrix.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="p-5">
+                  <FieldGroup className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="name" className="text-white text-xs">Identifier</FieldLabel>
+                        <Input
+                          id="name"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="e.g., HDFC Card"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="type" className="text-white text-xs">Debt Category</FieldLabel>
+                        <Select
+                          value={formData.type}
+                          onValueChange={(value: Debt['type']) => setFormData({ ...formData, type: value })}
+                        >
+                          <SelectTrigger className="w-full bg-white/5 border-white/10 text-white h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-white/10">
+                            {debtTypeOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-neutral-900 focus:bg-neutral-100 focus:text-black">{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="principal" className="text-white text-xs">Outstanding Principal</FieldLabel>
+                        <Input
+                          id="principal"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="100000"
+                          value={formData.principal}
+                          onChange={(e) => setFormData({ ...formData, principal: e.target.value })}
+                          required
+                          min="0"
+                        />
+                      </Field>
+                      <Field>
+                        <div className="flex justify-between items-end mb-1">
+                          <FieldLabel htmlFor="interestRate" className="text-white text-xs">Interest Rate (%)</FieldLabel>
+                          {formData.interestRate && parseFloat(formData.interestRate) > 18 && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                               <span className="text-[10px] font-black uppercase tracking-[0.2em] italic text-amber-400">
+                                 THREAT DETECTED
+                               </span>
+                               <Popover>
+                                 <PopoverTrigger asChild>
+                                   <button 
+                                     type="button" 
+                                     className="w-5 h-5 bg-amber-500 text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                                   >
+                                     <AlertTriangle className="w-3 h-3 fill-black" />
+                                   </button>
+                                 </PopoverTrigger>
+                                 <PopoverContent 
+                                   side="top" 
+                                   align="end" 
+                                   className="bg-white text-black border-none text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-none shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] z-[110]"
+                                 >
+                                   <div className="flex items-center gap-2">
+                                     <div className="w-1 h-3 bg-amber-500" />
+                                     CRITICAL: Interest rate &gt; 18% leads to rapid capital erosion.
+                                   </div>
+                                 </PopoverContent>
+                               </Popover>
+                            </div>
+                          )}
+                        </div>
+                        <Input
+                          id="interestRate"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="18"
+                          value={formData.interestRate}
+                          onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
+                          required
+                          min="0"
+                          step="0.01"
+                        />
+                      </Field>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="remainingTenure" className="text-white text-xs">Remaining Tenure (Months)</FieldLabel>
+                        <Input
+                          id="remainingTenure"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="24"
+                          value={formData.remainingTenure}
+                          onChange={(e) => setFormData({ ...formData, remainingTenure: e.target.value })}
+                          required
+                          min="1"
+                        />
+                      </Field>
+                      <Field>
+                        <div className="flex justify-between items-end mb-1">
+                          <FieldLabel htmlFor="emi" className="text-white text-xs">Monthly EMI</FieldLabel>
+                          {formData.principal && formData.interestRate && formData.remainingTenure && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                               <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">
+                                 <span className="text-white">= </span>
+                                 <span className="text-emerald-400">
+                                   {(() => {
+                                      const p = parseFloat(formData.principal);
+                                      const r = (parseFloat(formData.interestRate) / 12) / 100;
+                                      const n = parseInt(formData.remainingTenure);
+                                      if (isNaN(p) || isNaN(r) || isNaN(n) || r === 0) return formatCurrency(p / n);
+                                      const emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                                      return formatCurrency(emi);
+                                   })()}
+                                 </span>
+                               </span>
+                               <Popover>
+                                 <PopoverTrigger asChild>
+                                   <button 
+                                     type="button" 
+                                     className="w-5 h-5 bg-emerald-500 text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                   >
+                                     <Info className="w-3 h-3 fill-black font-black" />
+                                   </button>
+                                 </PopoverTrigger>
+                                 <PopoverContent 
+                                   side="top" 
+                                   align="end" 
+                                   className="bg-white text-black border-none text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-none shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] z-[110]"
+                                 >
+                                   <div className="flex items-center gap-2">
+                                     <div className="w-1 h-3 bg-emerald-500" />
+                                     Calculated EMI projection based on current variables.
+                                   </div>
+                                 </PopoverContent>
+                               </Popover>
+                            </div>
+                          )}
+                        </div>
+                        <Input
+                          id="emi"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="5000"
+                          value={formData.emi}
+                          onChange={(e) => setFormData({ ...formData, emi: e.target.value })}
+                          required
+                          min="0"
+                        />
+                      </Field>
+                    </div>
+                  </FieldGroup>
+                  <DialogFooter className="mt-5 gap-3">
+                    <Button 
+                      type="button" 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold" 
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting} 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold px-6"
+                    >
+                      {isSubmitting ? '...' : editingItem ? 'Update' : 'Initialize'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </motion.div>
+            </DialogContent>
+          )}
+        </AnimatePresence>
       </Dialog>
 
       {/* Delete Confirmation */}
