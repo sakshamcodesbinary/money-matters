@@ -25,11 +25,11 @@
   }
 
   .dark {
-    --background: #010204;
+    --background: #000000;
     --foreground: #ffffff;
-    --card: rgba(10, 10, 10, 0.8);
+    --card: #080808;
     --card-foreground: #ffffff;
-    --popover: #010204;
+    --popover: #050505;
     --popover-foreground: #ffffff;
     --primary: #ffffff;
     --primary-foreground: #000000;

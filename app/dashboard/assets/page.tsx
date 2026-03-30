@@ -27,7 +27,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DataTable, type Column } from '@/components/dashboard/data-table';
-import { Plus, Building2 } from 'lucide-react';
+import { Plus, Building2, Info, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { api, type Asset } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -40,6 +46,8 @@ function formatCurrency(amount: number) {
 }
 
 const assetTypeLabels: Record<string, string> = {
+  cash: 'Liquid Capital (Bank)',
+  emergency_fund: 'Resilience Strategy (Emergency Fund)',
   property: 'Property',
   vehicle: 'Vehicle',
   jewelry: 'Jewelry',
@@ -48,6 +56,8 @@ const assetTypeLabels: Record<string, string> = {
 };
 
 const assetTypeOptions = [
+  { value: 'cash', label: 'Liquid Capital (Bank)' },
+  { value: 'emergency_fund', label: 'Resilience Strategy (Emergency Fund)' },
   { value: 'property', label: 'Property' },
   { value: 'vehicle', label: 'Vehicle' },
   { value: 'jewelry', label: 'Jewelry' },
@@ -95,8 +105,8 @@ export default function AssetsPage() {
     },
     {
       key: 'purchaseDate',
-      header: 'Purchase Date',
-      render: (item) => new Date(item.purchaseDate).toLocaleDateString('en-IN'),
+      header: 'Acquisition',
+      render: (item) => ['cash', 'emergency_fund'].includes(item.type) ? 'Current' : item.purchaseDate,
     },
   ];
 
@@ -119,7 +129,7 @@ export default function AssetsPage() {
         type: item.type,
         currentValue: item.currentValue.toString(),
         purchaseValue: item.purchaseValue.toString(),
-        purchaseDate: item.purchaseDate.split('T')[0],
+        purchaseDate: item.purchaseDate,
       });
     } else {
       resetForm();
@@ -241,86 +251,165 @@ export default function AssetsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Asset' : 'Add Asset'}</DialogTitle>
-            <DialogDescription>
-              {editingItem ? 'Update your asset details.' : 'Add a new asset to track.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <FieldGroup className="py-4">
-              <Field>
-                <FieldLabel htmlFor="name">Asset Name</FieldLabel>
-                <Input
-                  id="name"
-                  placeholder="e.g., Apartment in Mumbai, Honda City"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="type">Type</FieldLabel>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: Asset['type']) => setFormData({ ...formData, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assetTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="purchaseValue">Purchase Value (INR)</FieldLabel>
-                <Input
-                  id="purchaseValue"
-                  type="number"
-                  placeholder="5000000"
-                  value={formData.purchaseValue}
-                  onChange={(e) => setFormData({ ...formData, purchaseValue: e.target.value })}
-                  required
-                  min="0"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="currentValue">Current Value (INR)</FieldLabel>
-                <Input
-                  id="currentValue"
-                  type="number"
-                  placeholder="6500000"
-                  value={formData.currentValue}
-                  onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })}
-                  required
-                  min="0"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="purchaseDate">Purchase Date</FieldLabel>
-                <Input
-                  id="purchaseDate"
-                  type="date"
-                  value={formData.purchaseDate}
-                  onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                  required
-                />
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
+        <AnimatePresence>
+          {isDialogOpen && (
+            <DialogContent forceMount className="bg-transparent border-none p-0 max-w-lg shadow-none overflow-visible" showCloseButton={false}>
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.99 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.16, 1, 0.3, 1] 
+                }}
+                className="bg-[#050505] border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+              >
+                <DialogHeader className="p-6 border-b border-white/10">
+                  <DialogTitle className="text-white">
+                    {editingItem ? 'Update Portfolio Asset' : 'Initialize Portfolio Asset'}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/60">
+                    {editingItem ? 'Refining physical asset parameters.' : 'Mapping new physical wealth to matrix.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="p-5">
+                  <FieldGroup className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="name" className="text-white text-xs">Asset Identifier</FieldLabel>
+                        <Input
+                          id="name"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="e.g., Mumbai Apartment"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="type" className="text-white text-xs">Category</FieldLabel>
+                        <Select
+                          value={formData.type}
+                          onValueChange={(value: Asset['type']) => setFormData({ ...formData, type: value })}
+                        >
+                          <SelectTrigger className="w-full bg-white/5 border-white/10 text-white h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-white/10">
+                            {assetTypeOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value} className="text-neutral-900 focus:bg-neutral-100 focus:text-black">{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="purchaseValue" className="text-white text-xs">Purchase Price (Acquisition)</FieldLabel>
+                        <Input
+                          id="purchaseValue"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="5000000"
+                          value={formData.purchaseValue}
+                          onChange={(e) => setFormData({ ...formData, purchaseValue: e.target.value })}
+                          required
+                          min="0"
+                        />
+                      </Field>
+                      <Field>
+                        <div className="flex justify-between items-end mb-1">
+                          <FieldLabel htmlFor="currentValue" className="text-white text-xs">Current Market Value</FieldLabel>
+                          {formData.purchaseValue && formData.currentValue && !['cash', 'emergency_fund'].includes(formData.type) && (
+                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                               {(() => {
+                                  const p = parseFloat(formData.purchaseValue);
+                                  const c = parseFloat(formData.currentValue);
+                                  const diff = c - p;
+                                  const isGain = diff >= 0;
+                                  return (
+                                    <>
+                                       <span className={`text-[10px] font-black uppercase tracking-[0.2em] italic ${isGain ? 'text-emerald-400' : 'text-destructive'}`}>
+                                         {isGain ? '+' : ''}{formatCurrency(diff)}
+                                       </span>
+                                       <Popover>
+                                         <PopoverTrigger asChild>
+                                           <button 
+                                             type="button" 
+                                             className={`w-5 h-5 ${isGain ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-destructive shadow-[0_0_15px_rgba(239,68,68,0.4)]'} text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all`}
+                                           >
+                                             {isGain ? <TrendingUp className="w-3 h-3 fill-black" /> : <TrendingDown className="w-3 h-3 fill-black" />}
+                                           </button>
+                                         </PopoverTrigger>
+                                         <PopoverContent 
+                                           side="top" 
+                                           align="end" 
+                                           className="bg-white text-black border-none text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-none shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] z-[110]"
+                                         >
+                                           <div className="flex items-center gap-2">
+                                             <div className={`w-1 h-3 ${isGain ? 'bg-emerald-500' : 'bg-destructive'}`} />
+                                             Total capital {isGain ? 'appreciation' : 'depreciation'} since acquisition.
+                                           </div>
+                                         </PopoverContent>
+                                       </Popover>
+                                    </>
+                                  );
+                               })()}
+                            </div>
+                          )}
+                        </div>
+                        <Input
+                          id="currentValue"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder="6500000"
+                          value={formData.currentValue}
+                          onChange={(e) => setFormData({ ...formData, currentValue: e.target.value })}
+                          required
+                          min="0"
+                        />
+                      </Field>
+                    </div>
+
+                    {!['cash', 'emergency_fund'].includes(formData.type) && (
+                      <Field>
+                        <FieldLabel htmlFor="purchaseDate" className="text-white text-xs">Acquisition Year</FieldLabel>
+                        <Input
+                          id="purchaseDate"
+                          type="number"
+                          className="bg-white/5 border-white/10 text-white h-10"
+                          placeholder={new Date().getFullYear().toString()}
+                          value={formData.purchaseDate}
+                          onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                          required
+                          min="1900"
+                          max={new Date().getFullYear()}
+                        />
+                      </Field>
+                    )}
+                  </FieldGroup>
+                  <DialogFooter className="mt-5 gap-3">
+                    <Button 
+                      type="button" 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold" 
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting} 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold px-6"
+                    >
+                      {isSubmitting ? '...' : editingItem ? 'Update' : 'Initialize'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </motion.div>
+            </DialogContent>
+          )}
+        </AnimatePresence>
       </Dialog>
 
       {/* Delete Confirmation */}

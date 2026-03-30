@@ -28,7 +28,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DataTable, type Column } from '@/components/dashboard/data-table';
-import { Plus, TrendingDown } from 'lucide-react';
+import { Plus, TrendingDown, Info, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { api, type Expense } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -58,7 +64,6 @@ const categoryOptions = [
 const frequencyLabels: Record<string, string> = {
   monthly: 'Monthly',
   annual: 'Annual',
-  'one-time': 'One-time',
 };
 
 export default function ExpensesPage() {
@@ -72,7 +77,7 @@ export default function ExpensesPage() {
     category: '',
     description: '',
     amount: '',
-    frequency: 'monthly' as 'monthly' | 'annual' | 'one-time',
+    frequency: 'monthly' as 'monthly' | 'annual',
     isEssential: false,
   });
 
@@ -133,7 +138,7 @@ export default function ExpensesPage() {
         category: item.category,
         description: item.description,
         amount: item.amount.toString(),
-        frequency: item.frequency,
+        frequency: item.frequency as 'monthly' | 'annual',
         isEssential: item.isEssential,
       });
     } else {
@@ -256,91 +261,154 @@ export default function ExpensesPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Expense' : 'Add Expense'}</DialogTitle>
-            <DialogDescription>
-              {editingItem ? 'Update your expense details.' : 'Add a new expense to track.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <FieldGroup className="py-4">
-              <Field>
-                <FieldLabel htmlFor="category">Category</FieldLabel>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="description">Description</FieldLabel>
-                <Input
-                  id="description"
-                  placeholder="e.g., Monthly rent, Netflix subscription"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="amount">Amount (INR)</FieldLabel>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="5000"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="frequency">Frequency</FieldLabel>
-                <Select
-                  value={formData.frequency}
-                  onValueChange={(value: 'monthly' | 'annual' | 'one-time') =>
-                    setFormData({ ...formData, frequency: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="annual">Annual</SelectItem>
-                    <SelectItem value="one-time">One-time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field className="flex items-center justify-between">
-                <FieldLabel htmlFor="isEssential" className="cursor-pointer">Essential Expense</FieldLabel>
-                <Switch
-                  id="isEssential"
-                  checked={formData.isEssential}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isEssential: checked })}
-                />
-              </Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
+        <AnimatePresence>
+          {isDialogOpen && (
+            <DialogContent forceMount className="bg-transparent border-none p-0 max-w-lg shadow-none overflow-visible" showCloseButton={false}>
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.99 }}
+                transition={{ 
+                  duration: 0.3,
+                  ease: [0.16, 1, 0.3, 1] 
+                }}
+                className="bg-[#050505] border border-white/10 rounded-lg overflow-hidden shadow-2xl"
+              >
+                <DialogHeader className="p-6 border-b border-white/10">
+                  <DialogTitle className="text-white">
+                    {editingItem ? 'Edit Expense Protocol' : 'Add Expense Protocol'}
+                  </DialogTitle>
+                  <DialogDescription className="text-white/60">
+                    {editingItem ? 'Refining capital outflow parameters.' : 'Mapping new capital drain to matrix.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="p-5">
+                  <FieldGroup className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field>
+                        <FieldLabel htmlFor="category" className="text-white text-xs">Category</FieldLabel>
+                        <Select
+                          value={formData.category}
+                          onValueChange={(value) => setFormData({ ...formData, category: value })}
+                        >
+                          <SelectTrigger className="w-full bg-white/5 border-white/10 text-white h-10">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-white/10">
+                            {categoryOptions.map((cat) => (
+                              <SelectItem key={cat} value={cat} className="text-neutral-900 focus:bg-neutral-100 focus:text-black">{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="frequency" className="text-white text-xs">Frequency</FieldLabel>
+                        <Select
+                          value={formData.frequency}
+                          onValueChange={(value: 'monthly' | 'annual') =>
+                            setFormData({ ...formData, frequency: value })
+                          }
+                        >
+                          <SelectTrigger className="w-full bg-white/5 border-white/10 text-white h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-white/10">
+                            <SelectItem value="monthly" className="text-neutral-900 focus:bg-neutral-100 focus:text-black">Monthly</SelectItem>
+                            <SelectItem value="annual" className="text-neutral-900 focus:bg-neutral-100 focus:text-black">Annual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                    <Field>
+                      <FieldLabel htmlFor="description" className="text-white text-xs">Description</FieldLabel>
+                      <Input
+                        id="description"
+                        className="bg-white/5 border-white/10 text-white h-10"
+                        placeholder="e.g., Monthly rent"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      <div className="flex justify-between items-end mb-1">
+                        <FieldLabel htmlFor="amount" className="text-white">Amount (INR)</FieldLabel>
+                        {formData.frequency === 'annual' && formData.amount && !isNaN(parseFloat(formData.amount)) && (
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                             <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">
+                               <span className="text-white">= </span>
+                               <span className="text-emerald-400">{formatCurrency(parseFloat(formData.amount) / 12)} / Month</span>
+                             </span>
+                             <Popover>
+                               <PopoverTrigger asChild>
+                                 <button 
+                                   type="button" 
+                                   className="w-5 h-5 bg-emerald-500 text-black rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                 >
+                                   <Info className="w-3 h-3 fill-black font-black" />
+                                 </button>
+                               </PopoverTrigger>
+                               <PopoverContent 
+                                 side="top" 
+                                 align="end" 
+                                 className="bg-white text-black border-none text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-none shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] z-[110]"
+                               >
+                                 <div className="flex items-center gap-2">
+                                   <div className="w-1 h-3 bg-emerald-500" />
+                                   Analytical Normalization: Divided by 12
+                                 </div>
+                               </PopoverContent>
+                             </Popover>
+                          </div>
+                        )}
+                      </div>
+                      <Input
+                        id="amount"
+                        type="number"
+                        className="bg-white/5 border-white/10 text-white"
+                        placeholder="5000"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        required
+                        min="0"
+                        step="0.01"
+                      />
+                    </Field>
+                    <Field className="flex items-center justify-between border border-white/5 p-3 rounded-none bg-white/[0.01]">
+                      <div className="space-y-0.5">
+                        <FieldLabel htmlFor="isEssential" className="cursor-pointer font-bold text-xs text-white">Essential Outflow</FieldLabel>
+                        <p className="text-[9px] text-white/40 uppercase tracking-tighter italic">Mark as non-discretionary</p>
+                      </div>
+                      <div className="flex items-center h-full text-white">
+                        <Switch
+                          id="isEssential"
+                          checked={formData.isEssential}
+                          onCheckedChange={(checked) => setFormData({ ...formData, isEssential: checked })}
+                        />
+                      </div>
+                    </Field>
+                  </FieldGroup>
+                  <DialogFooter className="mt-5 gap-3">
+                    <Button 
+                      type="button" 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold" 
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting} 
+                      className="bg-white text-black hover:bg-white/90 h-9 text-xs font-bold px-6"
+                    >
+                      {isSubmitting ? '...' : editingItem ? 'Update' : 'Add'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </motion.div>
+            </DialogContent>
+          )}
+        </AnimatePresence>
       </Dialog>
 
       {/* Delete Confirmation */}
