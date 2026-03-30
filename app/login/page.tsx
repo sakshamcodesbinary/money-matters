@@ -108,7 +108,7 @@ export default function LoginPage() {
 
             <FieldGroup className="grid grid-cols-2 gap-4">
                 <Field>
-                    <FieldLabel className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Access ID</FieldLabel>
+                    <FieldLabel className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Access ID</FieldLabel>
                     <Input
                         type="email"
                         placeholder="UID@DOMAIN.CORP"
@@ -119,7 +119,7 @@ export default function LoginPage() {
                     />
                 </Field>
                 <Field>
-                    <FieldLabel className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Secret Key</FieldLabel>
+                    <FieldLabel className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Secret Key</FieldLabel>
                     <Input
                         type="password"
                         placeholder="••••••••"
