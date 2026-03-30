@@ -110,7 +110,7 @@ export default function RegisterPage() {
 
             <FieldGroup className="grid grid-cols-2 gap-x-6 gap-y-4">
                 <Field>
-                    <FieldLabel className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Full Name</FieldLabel>
+                    <FieldLabel className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Full Name</FieldLabel>
                     <Input
                         type="text"
                         placeholder="NAME"
@@ -121,7 +121,7 @@ export default function RegisterPage() {
                     />
                 </Field>
                 <Field>
-                    <FieldLabel className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Access ID</FieldLabel>
+                    <FieldLabel className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Access ID</FieldLabel>
                     <Input
                         type="email"
                         placeholder="UID@DOMAIN.CORP"
@@ -132,7 +132,7 @@ export default function RegisterPage() {
                     />
                 </Field>
                 <Field>
-                    <FieldLabel className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Secret Key</FieldLabel>
+                    <FieldLabel className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Secret Key</FieldLabel>
                     <Input
                         type="password"
                         placeholder="••••••••"
@@ -144,7 +144,7 @@ export default function RegisterPage() {
                     />
                 </Field>
                 <Field>
-                    <FieldLabel className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Age</FieldLabel>
+                    <FieldLabel className="text-[11px] uppercase tracking-[0.2em] text-white/30 font-black mb-1.5">Age</FieldLabel>
                     <Input
                         type="number"
                         placeholder="00"
