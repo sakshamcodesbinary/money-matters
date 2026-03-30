@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdminAuth, getFirebaseAdminFirestore } from '@/lib/firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
 
@@ -608,21 +609,16 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       }, { status: 429 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const provider = process.env.AI_PROVIDER || 'gemini';
+    const usingOpenAI = provider.toLowerCase() === 'openai';
+
+    const apiKey = usingOpenAI ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('Missing GEMINI_API_KEY');
+      console.error(`Missing ${usingOpenAI ? 'OPENAI_API_KEY' : 'GEMINI_API_KEY'}`);
       return NextResponse.json({ message: 'AI configuration missing' }, { status: 500 });
     }
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        generationConfig: {
-          responseMimeType: 'application/json',
-          maxOutputTokens: 4096,
-        },
-      });
 
       lastAiGenerationTimestamp.set(db.user.uid, now);
 
@@ -738,19 +734,39 @@ Return ONLY this JSON structure exactly:
 }`;
 
 
-      console.log('Sending Prompt to Gemini (Length:', masterPrompt.length, '):', masterPrompt.substring(0, 1000) + '...');
+      console.log(`Sending Prompt to ${usingOpenAI ? 'OpenAI' : 'Gemini'} (Length: ${masterPrompt.length}):`, masterPrompt.substring(0, 1000) + '...');
       
       // Add a timeout to the AI call to prevent hanging
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gemini API Timeout after 30s')), 30000)
+        setTimeout(() => reject(new Error('AI API Timeout after 30s')), 30000)
       );
       
-      const result = await Promise.race([
-        model.generateContent(masterPrompt),
-        timeoutPromise
-      ]) as any;
+      let responseTextRaw = '';
+      if (usingOpenAI) {
+        const openai = new OpenAI({ apiKey });
+        const result: any = await Promise.race([
+          openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: masterPrompt }],
+            response_format: { type: 'json_object' },
+            max_tokens: 4096,
+          }),
+          timeoutPromise
+        ]);
+        responseTextRaw = result.choices[0].message.content || '{}';
+      } else {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-3.1-flash-lite',
+          generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
+        });
+        const result: any = await Promise.race([
+          model.generateContent(masterPrompt),
+          timeoutPromise
+        ]);
+        responseTextRaw = await result.response.text();
+      }
 
-      const responseTextRaw = await result.response.text();
       const responseText = responseTextRaw.trim().replace(/^```json/, '').replace(/```$/, '').trim();
       const aiResponse = JSON.parse(responseText);
 
@@ -859,7 +875,7 @@ Return ONLY this JSON structure exactly:
 
       return NextResponse.json({ roadmap: structuredRoadmap, fromCache: false, fingerprint, generatedAt: new Date().toISOString() });
     } catch (error: any) {
-      console.error('Gemini AI Error - Falling back to local calculation:', error.message);
+      console.error('AI Error - Falling back to local calculation:', error.message);
       
       // FALLBACK: Return a calculated roadmap if AI fails (e.g. Quota Exceeded)
       const summary = computeSummary(db);
