@@ -757,7 +757,7 @@ Return ONLY this JSON structure exactly:
       } else {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-          model: 'gemini-3.1-flash-lite',
+          model: 'gemini-2.5-flash-lite',
           generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
         });
         const result: any = await Promise.race([
